@@ -1097,7 +1097,7 @@ def deposit_page():
                         return
 
                     try:
-                        amount = int(amount_input.value)
+                        amount = int(amount_input.value.replace(',', ''))  # 콤마 포함 입력 방어
                     except ValueError:
                         preview_label.text = '올바른 금액을 입력해주세요.'
                         preview_label.classes(replace='text-[#EF4444] text-sm mb-4')
@@ -1108,20 +1108,31 @@ def deposit_page():
                         preview_label.classes(replace='text-[#EF4444] text-sm mb-4')
                         return
 
+                    current_krw = float(balance['krw'])  # ← 반드시 float으로 변환
+
                     if mode.value == '입금':
-                        after = balance['krw'] + amount
+                        after = current_krw + amount
                     else:
-                        after = balance['krw'] - amount
+                        after = current_krw - amount
 
                     if after < 0:
-                        preview_label.text = '출금 금액이 보유 잔고를 초과합니다.'
+                        preview_label.text = f'출금 금액이 보유 잔고를 초과합니다. (보유: {format_won(current_krw)})'
                         preview_label.classes(replace='text-[#EF4444] text-sm mb-4')
                     else:
                         preview_label.text = f'처리 후 잔고: {format_won(after)}'
                         preview_label.classes(replace='text-[#2563EB] text-sm mb-4')
 
-                amount_input.on('update:model-value', lambda _: update_preview())
+                debounce_timer = {'ref': None}
 
+                def update_preview_debounced(_=None):
+                    # 이전 타이머 취소
+                    if debounce_timer['ref']:
+                        debounce_timer['ref'].cancel()
+                    # 0.5초 후에 계산 (그 사이 입력이 더 오면 취소되고 재시작)
+                    debounce_timer['ref'] = ui.timer(0.5, update_preview, once=True)
+
+                amount_input.on('update:model-value', update_preview_debounced)
+                
                 quick_amounts = [
                     ('10만원', 100000),
                     ('50만원', 500000),
